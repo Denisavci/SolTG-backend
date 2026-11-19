@@ -672,6 +672,9 @@ namespace ufo
         void push () { solver.push (); }
         void pop (unsigned n = 1) { solver.pop (n); }
         void reset () { solver.reset (); }
+
+        // Z3's explanation for the last `unknown` result (e.g. "timeout", "canceled", "incomplete ...")
+        std::string reasonUnknown () { return std::string (Z3_solver_get_reason_unknown (ctx, solver)); }
     };
 
 

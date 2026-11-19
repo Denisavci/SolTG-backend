@@ -2,6 +2,7 @@
 #define SMTUTILS__HPP__
 #include <assert.h>
 #include <fstream>
+#include <chrono>
 
 #include "ae/ExprSimpl.hpp"
 #include "ufo/Smt/EZ3.hh"
@@ -196,9 +197,50 @@ namespace ufo
         }
         smt.assertExpr(lastCand);
       }
+      auto q_start = std::chrono::steady_clock::now();
       boost::tribool res = smt.solve ();
       can_get_model = res ? true : false;
+      if (!queryLogFile.empty()) logQuery(res, q_start);
       return res;
+    }
+
+    /**
+     * Per-query log (enabled by enableQueryLog): one line per SMT check, appended and closed
+     * immediately so the lines survive when the caller kills the process at its timeout.
+     *   <query#> <sat|unsat|unknown> <elapsed_ms> timeout_ms=<n> reason=<z3 reason or ->
+     */
+    unsigned queryCount = 0;
+    unsigned queryUnknown = 0;
+    unsigned queryTimeouts = 0;
+    unsigned queryTimeoutMs = 0;
+    string queryLogFile;
+    string lastUnknownReason;
+
+    void enableQueryLog(const string& file, unsigned timeoutMs)
+    {
+      queryLogFile = file;
+      queryTimeoutMs = timeoutMs;
+    }
+
+    void logQuery(boost::tribool res, std::chrono::steady_clock::time_point q_start)
+    {
+      long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - q_start).count();
+      queryCount++;
+      string status = res ? "sat" : (!res ? "unsat" : "unknown");
+      string reason = "-";
+      if (indeterminate(res)) {
+        queryUnknown++;
+        reason = smt.reasonUnknown();
+        for (auto & ch : reason) if (ch == ' ' || ch == '\n') ch = '_';
+        if (reason.find("timeout") != string::npos || reason.find("canceled") != string::npos)
+          queryTimeouts++;
+      }
+      lastUnknownReason = reason;
+      ofstream f(queryLogFile, std::ios_base::app);
+      f << queryCount << " " << status << " " << ms << " timeout_ms=" << queryTimeoutMs
+        << " reason=" << reason << "\n";
+      f.close();
     }
 
     /**

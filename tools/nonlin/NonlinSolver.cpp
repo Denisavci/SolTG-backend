@@ -140,6 +140,7 @@ const char *OPT_D3 = "--phase-data";
 const char *OPT_D4 = "--stren-mbp";
 const char *OPT_MBP = "--eqs-mbp";
 const char *OPT_DEBUG = "--debug";
+const char *OPT_QUERY_TO = "--query-timeout";
 
 int main (int argc, char ** argv)
 {
@@ -169,6 +170,13 @@ int main (int argc, char ** argv)
     bool d_d = getBoolValue(OPT_D3, false, argc, argv);
     bool d_s = getBoolValue(OPT_D4, false, argc, argv);
     int debug = getIntValue(OPT_DEBUG, 0, argc, argv);
+    // Z3 timeout in milliseconds for every SMT query issued during test generation.
+    // Default 10000 = the value previously hard-coded in NonlinCHCsolver (behaviour unchanged).
+    int query_to = getIntValue(OPT_QUERY_TO, 10000, argc, argv);
+    if (query_to <= 0) {
+        errs() << "WARNING: " << OPT_QUERY_TO << " must be a positive number of ms; using 10000\n";
+        query_to = 10000;
+    }
 
     if (help) {
       // TODO: write help message
@@ -186,6 +194,6 @@ int main (int argc, char ** argv)
 
     testgen(argv[argc-1], signature, max_attempts, to, densecode, aggressivepruning,
             do_dl, do_elim, do_disj, do_prop, d_m, d_p, d_d, d_s,
-            to_skip, invMode, lookahead, lb, lmax, prio, debug);
+            to_skip, invMode, lookahead, lb, lmax, prio, debug, (unsigned)query_to);
     return 0;
 }

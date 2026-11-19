@@ -70,9 +70,14 @@ namespace ufo
 
   public:
 
-      NonlinCHCsolver(CHCs &r, map<string, map<string,vector<string>>> & s) :
+      // queryTimeoutMs: Z3 "timeout" (ms) for every SMT check issued through `u`.
+      // The default 10000 is the value that was hard-coded here before the option existed.
+      NonlinCHCsolver(CHCs &r, map<string, map<string,vector<string>>> & s, unsigned queryTimeoutMs = 10000) :
         m_efac(r.m_efac), ruleManager(r),
-        u(m_efac, r.m_z3, r.m_z3.getAdtAccessors(), 10000), signature(s) {}
+        u(m_efac, r.m_z3, r.m_z3.getAdtAccessors(), queryTimeoutMs), signature(s)
+      {
+        u.enableQueryLog("query_log.txt", queryTimeoutMs);
+      }
 
       bool checkAllOver(bool checkQuery = false) {
           for (auto &hr: ruleManager.chcs) {
@@ -901,6 +906,8 @@ namespace ufo
             else {
               u.dumpToFile(ssa);
               outs () << "unknown\n";
+              outs () << "QUERY_UNKNOWN query=" << u.queryCount << " reason=" << u.lastUnknownReason
+                      << " timeout_ms=" << u.queryTimeoutMs << " cur_bnd=" << cur_bnd << " depth=" << depth << "\n";
             }
           }
           for (auto t : trees){
@@ -926,7 +933,7 @@ namespace ufo
                     bool freqs, bool aggp, bool enableDataLearning, bool doElim,
                     bool doDisj, int doProp, bool dAllMbp, bool dAddProp, bool dAddDat,
                     bool dStrenMbp, bool toSkip, int invMode, int lookahead,
-                    bool lb, bool lmax, bool prio, int debug) {
+                    bool lb, bool lmax, bool prio, int debug, unsigned queryTimeoutMs = 10000) {
       ExprFactory m_efac;
       EZ3 z3(m_efac);
       ExprMap invs;
@@ -937,7 +944,8 @@ namespace ufo
 
       ruleManager.print();
 
-      NonlinCHCsolver nonlin(ruleManager, signature);
+      outs () << "query timeout (ms): " << queryTimeoutMs << "\n";
+      NonlinCHCsolver nonlin(ruleManager, signature, queryTimeoutMs);
       if (signature.size() != 1)
       {
         outs () << "multiple contracs case\n"; //"Only a single contract is supported, currently\n";
